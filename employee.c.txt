@@ -1,0 +1,166 @@
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
+ 
+#define MAX_ACTION_SIZE 20
+#define DEFALUT_LIST_SIZE 64
+#define LIST_ENLARGE_FACTOR 2
+ 
+typedef struct time_entry {
+    size_t worker_id;
+    time_t last_arrival;
+    double total_work_time;
+    size_t work_counter;
+} time_entry_t;
+ 
+typedef struct clock_list {
+    time_entry_t * data;
+    size_t length;
+    size_t capacity;
+} clock_list_t;
+ 
+void process_clock_data(clock_list_t *, FILE *);
+time_entry_t * get_or_create_time_entry(clock_list_t *, size_t);
+void process_entry(clock_list_t *, time_t, size_t, const char *);
+ 
+clock_list_t * clock_list_create();
+void clock_list_free(clock_list_t *);
+time_entry_t * clock_list_create_element(clock_list_t *);
+ 
+int main(int argc, char * argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "No file provided\n");
+ 
+        return 1;
+    }
+ 
+    clock_list_t * lst = clock_list_create();
+ 
+    if (!lst) {
+        fprintf(stderr, "Failed to create clock list\n");
+ 
+        return 1;
+    }
+ 
+    FILE * fd = fopen(argv[1], "r");
+    if (!fd) {
+        fprintf(stderr, "Failed to read file\n");
+ 
+        return 1;
+    }
+ 
+    process_clock_data(lst, fd);
+ 
+    fclose(fd);
+ 
+    for (size_t i = 0; i < lst->length; ++i) {
+        time_entry_t * entry = &lst->data[i];
+ 
+        printf("%lu worked an average of %.2lf hours\n",
+                entry->worker_id,
+                entry->total_work_time / entry->work_counter);
+    }
+ 
+    clock_list_free(lst);
+}
+ 
+void process_clock_data(clock_list_t * lst, FILE * fd) {
+    struct tm entry_time;
+    size_t worker_id;
+    char action[MAX_ACTION_SIZE];
+ 
+    memset(&entry_time, 0, sizeof(entry_time));
+ 
+    while (fscanf(fd, "%d:%d:%d [%lu] %s\n",
+                &entry_time.tm_hour,
+                &entry_time.tm_min,
+                &entry_time.tm_sec,
+                &worker_id,
+                action) != EOF) {
+        process_entry(lst, mktime(&entry_time), worker_id, action);
+    }
+}
+ 
+time_entry_t * get_or_create_time_entry(clock_list_t * lst, size_t worker_id) {
+    time_entry_t * found = NULL;
+ 
+    for (size_t i = 0; i < lst->length && !found; ++i) {
+        if (lst->data[i].worker_id == worker_id) {
+            found = &lst->data[i];
+        }
+    }
+ 
+    if (!found) {
+        found = clock_list_create_element(lst);
+ 
+        if (found) {
+            found->worker_id = worker_id;
+            found->work_counter = 0;
+            found->total_work_time = 0;
+        }
+    }
+ 
+    return found;
+}
+ 
+void process_entry(clock_list_t * lst,
+        time_t action_time,
+        size_t worker_id,
+        const char * action) {
+    if (strncmp("Arrive", action, 6) == 0) {
+        time_entry_t * entry = get_or_create_time_entry(lst, worker_id);
+ 
+        if (entry) {
+            entry->last_arrival = action_time;
+        }
+    }
+    else if (strncmp("Depart", action, 6) == 0) {
+        time_entry_t * entry = get_or_create_time_entry(lst, worker_id);
+ 
+        if (entry) {
+            entry->total_work_time += difftime(action_time, entry->last_arrival) / (60 * 60);
+            ++entry->work_counter;
+        }
+    }
+}
+ 
+clock_list_t * clock_list_create() {
+    clock_list_t * lst = (clock_list_t *)malloc(sizeof(clock_list_t));
+ 
+    if (!lst) return NULL;
+ 
+    lst->data = (time_entry_t *)malloc(DEFALUT_LIST_SIZE * sizeof(time_entry_t));
+ 
+    if (!lst->data) {
+        free(lst);
+ 
+        return NULL;
+    }
+ 
+    lst->length = 0;
+    lst->capacity = DEFALUT_LIST_SIZE;
+ 
+    return lst;
+}
+ 
+void clock_list_free(clock_list_t *lst) {
+    free(lst->data);
+    free(lst);
+}
+ 
+time_entry_t * clock_list_create_element(clock_list_t * lst) {
+    if (lst->length == lst->capacity) {
+        time_entry_t * tmp =
+            (time_entry_t *)realloc(lst->data,
+                    lst->capacity * LIST_ENLARGE_FACTOR * sizeof(time_entry_t));
+ 
+        if (!tmp) return NULL;
+ 
+        lst->data = tmp;
+        lst->capacity *= LIST_ENLARGE_FACTOR;
+    }
+ 
+    return &lst->data[lst->length++];
+}

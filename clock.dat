@@ -1,0 +1,15 @@
+15:30:00 [1] Garbage
+11:00:00 [1] Arrive
+11:30:00 [2] Arrive
+12:50:00 [1] Garbage
+13:39:00 [2] Garbage
+12:30:30 [2] Garbage
+15:30:00 [1] Garbage
+18:20:00 [1] Garbage
+18:30:00 [2] Garbage
+20:00:00 [1] Depart
+18:30:30 [2] Garbage
+21:15:00 [2] Depart
+10:00:00 [1] Arrive
+11:00:00 [1] Depart
+15:30:00 [1] Garbage
